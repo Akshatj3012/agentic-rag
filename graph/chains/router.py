@@ -33,3 +33,25 @@ route_prompt = ChatPromptTemplate.from_messages(
 )
 
 question_router = route_prompt | structured_llm_router
+
+class MemoryLookup(BaseModel):
+    """Memory lookup to retrieve relevant information from chat history."""
+
+    summary:  Literal["generate", "no relevant information found"] = Field(
+        ...,
+        description="Summary of relevant information from chat history or a message indicating no relevant information found.",
+    )
+
+memory_lookup_llm = llm.with_structured_output(MemoryLookup)
+
+memory_lookup_system_message = """You are an expert at summarizing chat history.
+Given the chat history and the current question, return generate
+If there is no relevant information, return 'No relevant information found'."""
+
+memory_lookup_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", memory_lookup_system_message),
+        ("human", "Here is the chat history:\n{chat_history}\nThis is the current question:\n{question}\nIf there is relevant information in the chat history, return it as a summary, otherwise return 'No relevant information found'."),
+    ]
+)
+memory_lookup_chain = memory_lookup_prompt | memory_lookup_llm

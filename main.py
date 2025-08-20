@@ -111,39 +111,85 @@ def main():
     print("Welcome! Ask me anything or type 'quit', 'exit', or 'bye' to stop.")
     print("-" * 60)
     
+    # while True:
+    #     try:
+    #         # Get input mode preference
+    #         input_mode = get_input_mode()
+            
+    #         # Get user input based on mode
+    #         if input_mode == 't':
+    #             user_question = input("\n💬 You: ").strip()
+    #         else:
+    #             user_question = get_speech_input().strip()
+            
+    #         # Check for exit commands
+    #         if user_question.lower() in ['quit', 'exit', 'bye', 'q']:
+    #             print("\n👋 Goodbye! Thanks for chatting!")
+    #             break
+            
+    #         # Skip empty inputs
+    #         if not user_question:
+    #             print("Please enter a question.")
+    #             continue
+            
+    #         # Show processing indicator
+    #         print("\n🤔 Bot: Thinking...")
+            
+    #         # Process the question through the graph
+    #         result = app.invoke(input={"question": user_question})
+            
+    #         # Format and display the response
+    #         response = format_response(result)
+    #         print(f"\n🤖 Bot: {response}")
+    #         # If the response is text, convert it to speech
+    #         cartesia_text_to_speech(response)
+            
+    #     except KeyboardInterrupt:
+    #         print("\n\n👋 Goodbye! Thanks for chatting!")
+    #         break
+    #     except Exception as e:
+    #         print(f"\n❌ Sorry, I encountered an error: {str(e)}")
+    #         print("Please try asking your question again.")
+
+    # Initialize persistent state
+    state = {"chat_history": []}
+
     while True:
         try:
-            # Get input mode preference
             input_mode = get_input_mode()
-            
-            # Get user input based on mode
             if input_mode == 't':
                 user_question = input("\n💬 You: ").strip()
             else:
                 user_question = get_speech_input().strip()
-            
-            # Check for exit commands
+
             if user_question.lower() in ['quit', 'exit', 'bye', 'q']:
                 print("\n👋 Goodbye! Thanks for chatting!")
                 break
-            
-            # Skip empty inputs
+
             if not user_question:
                 print("Please enter a question.")
                 continue
-            
-            # Show processing indicator
+
             print("\n🤔 Bot: Thinking...")
-            
-            # Process the question through the graph
-            result = app.invoke(input={"question": user_question})
-            
-            # Format and display the response
+
+            # Add question to state
+            state["question"] = user_question
+
+            # Pass the persistent state to the graph
+            result = app.invoke(input=state)
+
+            # Update state with new chat history and generation
+            if isinstance(result, dict):
+                # Update chat_history and generation if present
+                if "chat_history" in result:
+                    state["chat_history"] = result["chat_history"]
+                if "generation" in result:
+                    state["generation"] = result["generation"]
+
             response = format_response(result)
             print(f"\n🤖 Bot: {response}")
-            # If the response is text, convert it to speech
             cartesia_text_to_speech(response)
-            
+
         except KeyboardInterrupt:
             print("\n\n👋 Goodbye! Thanks for chatting!")
             break

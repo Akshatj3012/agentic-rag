@@ -9,15 +9,71 @@ from langgraph.graph import END, StateGraph
 
 from graph.chains.answer_grader import answer_grader
 from graph.chains.hallucination_grader import hallucination_grader
-from graph.chains.router import RouteQuery, question_router
-from graph.consts import GENERATE, GRADE_DOCUMENTS, RETRIEVE, WEBSEARCH
+from graph.chains.router import RouteQuery, question_router, MemoryLookup, memory_lookup_chain
+from graph.consts import GENERATE, GRADE_DOCUMENTS, RETRIEVE, WEBSEARCH, ADDED_TO_MEMORY
 from graph.nodes.generate import generate
 from graph.nodes.grade_documents import grade_documents
 from graph.nodes.retrieve import retrieve
 from graph.nodes.web_search import web_search
 from graph.state import GraphState
+# from graph.nodes.memory import memory_lookup
 
 load_dotenv()
+MEMORY_LOOKUP = "memory_lookup"
+
+def add_to_memory(state: GraphState) -> GraphState:
+    """
+    Add the current question and answer to the chat history.
+    """
+    if not state["chat_history"]:
+        state["chat_history"] = []
+    
+    # Append the current question and answer to chat history
+    print("---ADDING QUESTION TO CHAT HISTORY---")
+    state["chat_history"].append({
+        "role": "user",
+        "content": state["question"]
+    })
+    
+    if state["generation"]:
+        print("---ADDING GENERATION TO CHAT HISTORY---")
+        state["chat_history"].append({
+            "role": "assistant",
+            "content": state["generation"]
+        })
+    print("---CHAT HISTORY UPDATED---", state["chat_history"])
+    print("State after adding to memory:", state)
+    return state
+
+def memory_lookup(state: GraphState) -> str:
+    """
+    Perform a memory lookup to retrieve relevant information from chat history.
+    """
+    print("---MEMORY LOOKUP---")
+    if state.get("chat_history") is None or len(state["chat_history"]) == 0:
+        print("---NO CHAT HISTORY AVAILABLE---")
+        return {"generate_from_memory": False, "question": state["question"], "chat_history": []}
+        
+    
+    # Invoke the memory lookup chain
+    print("---CHECKING CHAT HISTORY FOR RELEVANT INFORMATION---")
+    memory_lookup_result: MemoryLookup = memory_lookup_chain.invoke({
+        "chat_history": state["chat_history"],
+        "question": state["question"]
+    })
+    
+    if memory_lookup_result.summary == "generate":
+        print("---RELEVANT INFORMATION FOUND IN CHAT HISTORY---")
+        state["generate_from_memory"] = True
+        # docs = [doc["content"] for doc in state["chat_history"] if doc["role"] == "assistant"]
+        # state["documents"] = docs
+        # print("---DOCUMENTS FROM CHAT HISTORY---", state["documents"])
+        return {"generate_from_memory": True, "question": state["question"], "chat_history": state["chat_history"]}
+    else:
+        print("---NO RELEVANT INFORMATION FOUND IN CHAT HISTORY---")
+        state["generate_from_memory"] = False
+        return {"generate_from_memory": False, "question": state["question"], "chat_history": state["chat_history"]}
+
 
 
 def decide_to_generate(state):
@@ -83,20 +139,40 @@ def route_question(state: GraphState) -> str:
 
 workflow = StateGraph(GraphState)
 
+workflow.add_node(MEMORY_LOOKUP, memory_lookup)
 workflow.add_node(RETRIEVE, retrieve)
 workflow.add_node(GRADE_DOCUMENTS, grade_documents)
 workflow.add_node(GENERATE, generate)
 workflow.add_node(WEBSEARCH, web_search)
+workflow.add_node(ADDED_TO_MEMORY, add_to_memory)
 
-workflow.set_conditional_entry_point(
-    route_question,
+# New entry point: always check memory first
+workflow.set_entry_point(MEMORY_LOOKUP)
+
+def after_memory_lookup(state: GraphState) -> str:
+    print("---DECIDE NEXT STEP AFTER MEMORY LOOKUP---")
+    print("State keys:", list(state.keys()))
+    if state["generate_from_memory"]:
+        return GENERATE
+    else:
+        question = state["question"]
+        source: RouteQuery = question_router.invoke({"question": question})
+        if source.datasource == WEBSEARCH:
+            return WEBSEARCH
+        elif source.datasource == "vectorstore":
+            return RETRIEVE
+        else:
+            return RETRIEVE
+
+workflow.add_conditional_edges(
+    MEMORY_LOOKUP,
+    after_memory_lookup,
     {
+        GENERATE: GENERATE,
         WEBSEARCH: WEBSEARCH,
         RETRIEVE: RETRIEVE,
     },
 )
-
-# workflow.set_entry_point(RETRIEVE)
 
 workflow.add_edge(RETRIEVE, GRADE_DOCUMENTS)
 workflow.add_conditional_edges(
@@ -113,12 +189,13 @@ workflow.add_conditional_edges(
     grade_generation_grounded_in_documents_and_question,
     {
         "not supported": GENERATE,
-        "useful": END,
+        "useful": ADDED_TO_MEMORY,
         "not useful": WEBSEARCH,
     },
 )
 workflow.add_edge(WEBSEARCH, GENERATE)
-workflow.add_edge(GENERATE, END)
+workflow.add_edge(GENERATE, ADDED_TO_MEMORY)
+workflow.add_edge(ADDED_TO_MEMORY, END)
 
 app = workflow.compile()
 

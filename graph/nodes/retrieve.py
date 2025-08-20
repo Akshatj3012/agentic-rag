@@ -19,4 +19,4 @@ def retrieve(state: GraphState) -> Dict[str, Any]:
     question = state["question"]
 
     documents = retriever.invoke(question)
-    return {"documents": documents, "question": question}
+    return {"documents": documents, "question": question, "chat_history": state["chat_history"], "generate_from_memory": False}

@@ -1,13 +1,13 @@
 # Agentic RAG Workspace
 
-This repository implements an Adaptive Retrieval-Augmented Generation (RAG) pipeline using Azure OpenAI, LangChain, CartesiaAI, and AssemblyAI. It includes model configuration, ingestion, and graph-based orchestration.
+This repository implements an Adaptive Retrieval-Augmented Generation (RAG) pipeline using Azure OpenAI, LangChain, CartesiaAI, and AssemblyAI. It includes model configuration, ingestion, persistent chat history, and graph-based orchestration.
 
 ## Directory Structure
 
 ```
 .env                      # Environment variables for API keys and config
 main.py                   # Entry point for running the pipeline
-model.py                  # LLM and embedding model configuration
+model.py                   # LLM and embedding model configuration
 ingestion.py              # Data ingestion utilities
 assembly.py               # AssemblyAI integration
 cartesiaai.py             # CartesiaAI integration
@@ -57,6 +57,14 @@ Run the main pipeline:
 ```sh
 python main.py
 ```
+
+## Chat History
+
+- The system maintains a persistent chat history for each session.
+- Each user question and assistant response is appended to the chat history.
+- The chat history is used for memory lookup, allowing the assistant to reference previous interactions and provide context-aware answers.
+- If relevant information is found in the chat history, it is summarized and used to generate responses.
+- Chat history is managed in `main.py` and `graph/graph.py`.
 
 ## Components
 
