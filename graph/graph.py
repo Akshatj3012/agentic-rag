@@ -65,10 +65,10 @@ def memory_lookup(state: GraphState) -> str:
     if memory_lookup_result.summary == "generate":
         print("---RELEVANT INFORMATION FOUND IN CHAT HISTORY---")
         state["generate_from_memory"] = True
-        # docs = [doc["content"] for doc in state["chat_history"] if doc["role"] == "assistant"]
-        # state["documents"] = docs
+        docs = [doc["content"] for doc in state["chat_history"] if doc["role"] == "assistant"]
+        state["documents"] = docs
         # print("---DOCUMENTS FROM CHAT HISTORY---", state["documents"])
-        return {"generate_from_memory": True, "question": state["question"], "chat_history": state["chat_history"]}
+        return {"generate_from_memory": True, "question": state["question"], "chat_history": state["chat_history"], "documents": state["documents"]}
     else:
         print("---NO RELEVANT INFORMATION FOUND IN CHAT HISTORY---")
         state["generate_from_memory"] = False
