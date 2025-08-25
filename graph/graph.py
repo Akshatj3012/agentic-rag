@@ -16,63 +16,16 @@ from graph.nodes.grade_documents import grade_documents
 from graph.nodes.retrieve import retrieve
 from graph.nodes.web_search import web_search
 from graph.state import GraphState
+from graph.nodes.add_to_memory import add_to_memory
+from graph.nodes.memory_lookup import memory_lookup
 # from graph.nodes.memory import memory_lookup
 
 load_dotenv()
 MEMORY_LOOKUP = "memory_lookup"
 
-def add_to_memory(state: GraphState) -> GraphState:
-    """
-    Add the current question and answer to the chat history.
-    """
-    if not state["chat_history"]:
-        state["chat_history"] = []
-    
-    # Append the current question and answer to chat history
-    print("---ADDING QUESTION TO CHAT HISTORY---")
-    state["chat_history"].append({
-        "role": "user",
-        "content": state["question"]
-    })
-    
-    if state["generation"]:
-        print("---ADDING GENERATION TO CHAT HISTORY---")
-        state["chat_history"].append({
-            "role": "assistant",
-            "content": state["generation"]
-        })
-    print("---CHAT HISTORY UPDATED---", state["chat_history"])
-    print("State after adding to memory:", state)
-    return state
 
-def memory_lookup(state: GraphState) -> str:
-    """
-    Perform a memory lookup to retrieve relevant information from chat history.
-    """
-    print("---MEMORY LOOKUP---")
-    if state.get("chat_history") is None or len(state["chat_history"]) == 0:
-        print("---NO CHAT HISTORY AVAILABLE---")
-        return {"generate_from_memory": False, "question": state["question"], "chat_history": []}
-        
-    
-    # Invoke the memory lookup chain
-    print("---CHECKING CHAT HISTORY FOR RELEVANT INFORMATION---")
-    memory_lookup_result: MemoryLookup = memory_lookup_chain.invoke({
-        "chat_history": state["chat_history"],
-        "question": state["question"]
-    })
-    
-    if memory_lookup_result.summary == "generate":
-        print("---RELEVANT INFORMATION FOUND IN CHAT HISTORY---")
-        state["generate_from_memory"] = True
-        docs = [doc["content"] for doc in state["chat_history"] if doc["role"] == "assistant"]
-        state["documents"] = docs
-        # print("---DOCUMENTS FROM CHAT HISTORY---", state["documents"])
-        return {"generate_from_memory": True, "question": state["question"], "chat_history": state["chat_history"], "documents": state["documents"]}
-    else:
-        print("---NO RELEVANT INFORMATION FOUND IN CHAT HISTORY---")
-        state["generate_from_memory"] = False
-        return {"generate_from_memory": False, "question": state["question"], "chat_history": state["chat_history"]}
+
+
 
 
 
